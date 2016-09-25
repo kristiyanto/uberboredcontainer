@@ -60,7 +60,7 @@ def pipeDriver(x):
         elif d.status in ['pickup']:
             if (vincenty(d.location, d.destination).meters < 300):
                 p = getPassenger(d.destinationid)
-                d.loadPassenger(d, p)
+                d.loadPassenger(p)
             else:
             	d.update()
 
@@ -171,6 +171,7 @@ class driver(object):
             p.match = p1.id
             p1.status = 'match'
             p.status = 'match'
+            self.status = 'ontrip'
             p1.update()
 
         else:
