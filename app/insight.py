@@ -33,22 +33,22 @@ distance = '5km'
 def main():
 
     #kc = KafkaClient(','.join(['{}:9092'.format(i) for i in cluster]), client_id='docker', timeout=120)
-    kafka = KafkaConsumer(bootstrap_servers=cluster, 
+    kaf = KafkaConsumer(bootstrap_servers=cluster, 
     					  api_version= (0, 9),
                           group_id='docker',
                           enable_auto_commit=True,
                           auto_commit_interval_ms= 5000,
                           auto_offset_reset='smallest')  
-    kafka.subscribe(['driver', 'passenger'])
+    kaf.subscribe(['driver', 'passenger'])
     while(True):
-        currentWindow = kafka.poll(100)
-        for message in currentWindow:
-            m = json.loads(message.value)
-            print m
+        kaf.poll(100)
+        for message in kaf:
+            # m = json.loads(message.value)
+            print message
             res=pipeDriver(m) if message.topic == 'driver' else pipePassenger(m)
-    #print res
-        kafka.commit()
-    kafka.close()
+            print res
+        kaf.commit()
+    kaf.close()
 
 
 
