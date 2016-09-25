@@ -41,12 +41,11 @@ def main():
                           auto_offset_reset='smallest')  
     kaf.subscribe(['driver', 'passenger'])
     while(True):
-        kaf.poll(100)
+        kaf.poll(10)
         for message in kaf:
             m = json.loads(message.value)
-            print message
-            res=pipeDriver(m) if message.topic == 'driver' else pipePassenger(m)
-            print res
+            print message.value
+            #res=pipeDriver(m) if message.topic == 'driver' else pipePassenger(m)
         kaf.commit()
     kaf.close()
 
