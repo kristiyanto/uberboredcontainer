@@ -1,7 +1,7 @@
 from kafka import KafkaConsumer, KafkaClient
 from elasticsearch import Elasticsearch
 from datetime import datetime
-from geopy.distance import vincenty
+from geopy.distance import vincenty, Point
 import json
 
 cluster = ['ec2-52-27-127-152.us-west-2.compute.amazonaws.com', 'ec2-52-26-103-194.us-west-2.compute.amazonaws.com', \
@@ -40,12 +40,13 @@ def main():
                           auto_commit_interval_ms= 5000,
                           auto_offset_reset='smallest')  
     kafka.subscribe(['driver', 'passenger'])
-
-    for message in kafka:
-        m = json.loads(message.value)
-        print m
-        res=pipeDriver(m) if message.topic == 'driver' else pipePassenger(m)
-        #print res
+    while(True):
+        currentWindow = kafka.poll(100)
+        for message in currentWindow:
+            m = json.loads(message.value)
+            print m
+            res=pipeDriver(m) if message.topic == 'driver' else pipePassenger(m)
+    #print res
         kafka.commit()
     kafka.close()
 
@@ -58,7 +59,7 @@ def pipeDriver(x):
             d.assignPassenger()
 
         elif d.status in ['pickup']:
-            if (vincenty(d.location, d.destination).meters < 300):
+            if (vincenty(Point(d.location), Point(d.destination)).meters < 300):
                 p = getPassenger(d.destinationid)
                 d.loadPassenger(p)
             else:
@@ -66,7 +67,7 @@ def pipeDriver(x):
 
 
         elif d.status in ['ontrip']:
-            if (vincenty(d.location, d.destination).meters < 300):
+            if (vincenty(Point(d.location), Point(d.destination)).meters < 300):
                 arrived(d)
 
             elif not d.p2: 
