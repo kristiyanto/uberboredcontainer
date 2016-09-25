@@ -1,5 +1,7 @@
-MAINTAINER Daniel Kristiyanto <danielkr@uw.edu>
 FROM python:2
+
+MAINTAINER Daniel Kristiyanto <danielkr@uw.edu>
+
 
 WORKDIR /app
 RUN pip install elasticsearch
