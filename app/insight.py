@@ -1,6 +1,7 @@
 from kafka import KafkaConsumer, KafkaClient
 from elasticsearch import Elasticsearch
 from datetime import datetime
+from geopy.distance import vincenty
 import json
 
 cluster = ['ec2-52-27-127-152.us-west-2.compute.amazonaws.com', 'ec2-52-26-103-194.us-west-2.compute.amazonaws.com', \
@@ -34,7 +35,7 @@ def main():
     #kc = KafkaClient(','.join(['{}:9092'.format(i) for i in cluster]), client_id='docker', timeout=120)
     kafka = KafkaConsumer(bootstrap_servers=cluster, 
     					  api_version= (0, 9),
-                          group_id='nyc',
+                          group_id='docker',
                           enable_auto_commit=True,
                           auto_commit_interval_ms= 5000,
                           auto_offset_reset='smallest')  
@@ -42,8 +43,9 @@ def main():
 
     for message in kafka:
         m = json.loads(message.value)
+        print m
         res=pipeDriver(m) if message.topic == 'driver' else pipePassenger(m)
-        print res
+        #print res
         kafka.commit()
     kafka.close()
 
@@ -54,20 +56,23 @@ def pipeDriver(x):
     if d.isKnown():
         if d.status in ['idle']:
             d.assignPassenger()
+
         elif d.status in ['pickup']:
-            if not d.location == d.destination:
-                d.update()
-            else:
-                p = getPassenger(d.p2) if d.p2 else getPassenger(d.p1)
+            if (vincenty(d.location, d.destination).meters < 300):
+                p = getPassenger(d.destinationid)
                 d.loadPassenger(d, p)
+            else:
+            	d.update()
+
 
         elif d.status in ['ontrip']:
-            if d.location == d.destination:
+            if (vincenty(d.location, d.destination).meters < 300):
                 arrived(d)
+
             elif not d.p2: 
                 p = getPassenger(d.p1)
                 p.location = d.location
-                self.update()
+                d.update()
                 p.update()
                 d.assignPassenger()
             else:
@@ -77,7 +82,7 @@ def pipeDriver(x):
                 p2.location = d.location
                 p.update()
                 p2.update()
-                self.update()
+                d.update()
     else:
         d.store()
     return d.jsonFormat()
@@ -154,23 +159,24 @@ class driver(object):
             return False
 
     def loadPassenger(self, p):
-        if self.p1 == None: 
+        if not self.p1: 
             self.p1 = p.id
             p.status = 'ontrip'
             self.status = 'ontrip'
             
-        elif self.p2 == None:
+        elif not self.p2:
             self.p2 = p.id
             p1 = getPassenger(self.p1)
             p1.match = p.id
             p.match = p1.id
             p1.status = 'match'
             p.status = 'match'
-            self.status = 'full'
             p1.update()
+
         else:
             print('Cab is full')
             return False
+
         p.driver = self.id
         self.destination = p.destination
         self.destinationid = p.destinationid
@@ -205,11 +211,11 @@ class passenger(object):
 
 
 def getPassenger(p_id):
-    res = es.get(index='passenger', doc_type='rolling', id=p_id, ignore=404)
+    res = es.get(index='passenger', doc_type='rolling', id=p_id, ignore=[404,400])
     return(passenger(res['_source'])) if res['found'] else res['found']
 
 def getDriver(p_id):
-    res = es.get(index='driver', doc_type='rolling', id=p_id, ignore=404)
+    res = es.get(index='driver', doc_type='rolling', id=p_id, ignore=[404,400])
     return(driver(res['_source'])) if res['found'] else res['found']
     
 def sanityCheck(driver):
@@ -238,7 +244,7 @@ def arrived(d):
     d.destinationid == None
     d.status == 'idle'
     p.status = 'arrived'
-    self.update()
+    d.update()
     p.update()
     if d.p2: 
         p2 = getPassenger(d.p2)
