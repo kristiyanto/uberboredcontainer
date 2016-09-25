@@ -45,7 +45,7 @@ def main():
         for message in kaf:
             m = json.loads(message.value)
             print message.value
-            #res=pipeDriver(m) if message.topic == 'driver' else pipePassenger(m)
+            res=pipeDriver(m) if message.topic == 'driver' else pipePassenger(m)
         kaf.commit()
     kaf.close()
 
