@@ -6,6 +6,7 @@ import json
 cluster = ['ec2-52-27-127-152.us-west-2.compute.amazonaws.com', 'ec2-52-26-103-194.us-west-2.compute.amazonaws.com', \
            'ec2-52-24-208-183.us-west-2.compute.amazonaws.com', 'ec2-52-40-113-83.us-west-2.compute.amazonaws.com']
 
+cluster = ['104.199.122.59']
 es = Elasticsearch(cluster, port=9200)
 distance = '5km'
 
