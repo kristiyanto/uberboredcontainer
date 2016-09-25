@@ -9,7 +9,7 @@ cluster = ['ec2-52-27-127-152.us-west-2.compute.amazonaws.com', 'ec2-52-26-103-1
 
 #cluster = ['104.199.122.59']
 es = Elasticsearch(cluster, port=9200)
-distance = '5km'
+distance = '3km'
 
 '''
     Driver:
@@ -41,7 +41,7 @@ def main():
                           auto_offset_reset='smallest')  
     kaf.subscribe(['driver', 'passenger'])
     while(True):
-        kaf.poll(10)
+        kaf.poll(50)
         for message in kaf:
             m = json.loads(message.value)
             print message.value
@@ -66,7 +66,7 @@ def pipeDriver(x):
 
 
         elif d.status in ['ontrip']:
-            if (vincenty(Point(d.location), Point(d.destination)).meters < 300):
+            if (vincenty(Point(d.location), Point(d.destination)).meters < 200):
                 arrived(d)
 
             elif not d.p2: 
@@ -89,8 +89,7 @@ def pipeDriver(x):
 
 def pipePassenger(x):
     p = passenger(x)
-    if not p.isKnown():
-        p.store()
+    res = p.update() if p.isKnown() else p.store()
     return(p.jsonFormat())
     
 
@@ -118,8 +117,8 @@ class driver(object):
         return(res['created'])
     def update(self):
         q = '{{"doc": {}}}'.format(self.jsonFormat())
-        res = es.update(index='driver', doc_type='rolling', id=self.id, body=q)
-        return(res['_version'])
+        res = es.update(index='driver', doc_type='rolling', id=self.id, body=q, ignore=[400,404])
+        return True
     def nearbyPassengers(self):
         geo_query = { "from" : 0, "size" : 3,
                      "_source":{"include": [ "_id" ]},
@@ -239,17 +238,19 @@ def updateLocation(self):
 
 def arrived(d):
     p = getPassenger(d.p1)
-    d.p1 == None
-    d.p2 == None
-    d.destination == None
-    d.destinationid == None
-    d.status == 'idle'
+    d.p1 = None
+    d.p2 = None
+    d.destination = None
+    d.destinationid = None
+    d.status = 'idle'
     p.status = 'arrived'
+    p.location = d.location
     d.update()
     p.update()
     if d.p2: 
         p2 = getPassenger(d.p2)
-        p2.status == 'arrived'
+        p2.status =  'arrived'
+        p2.location = d.location
         p2.update()
     return(True)    
     
