@@ -43,7 +43,7 @@ def main():
     while(True):
         kaf.poll(100)
         for message in kaf:
-            # m = json.loads(message.value)
+            m = json.loads(message.value)
             print message
             res=pipeDriver(m) if message.topic == 'driver' else pipePassenger(m)
             print res
