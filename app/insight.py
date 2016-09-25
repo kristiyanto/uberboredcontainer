@@ -6,7 +6,7 @@ import json
 cluster = ['ec2-52-27-127-152.us-west-2.compute.amazonaws.com', 'ec2-52-26-103-194.us-west-2.compute.amazonaws.com', \
            'ec2-52-24-208-183.us-west-2.compute.amazonaws.com', 'ec2-52-40-113-83.us-west-2.compute.amazonaws.com']
 
-cluster = ['104.199.122.59']
+#cluster = ['104.199.122.59']
 es = Elasticsearch(cluster, port=9200)
 distance = '5km'
 
@@ -28,6 +28,27 @@ distance = '5km'
             2. Send trip info to kafka (for archive)
         2. If not matched, update current location
 '''
+                
+def main():
+
+    #kc = KafkaClient(','.join(['{}:9092'.format(i) for i in cluster]), client_id='docker', timeout=120)
+    kafka = KafkaConsumer(bootstrap_servers=cluster, 
+    					  api_version= (0, 9),
+                          group_id='nyc',
+                          enable_auto_commit=True,
+                          auto_commit_interval_ms= 5000,
+                          auto_offset_reset='smallest')  
+    kafka.subscribe(['driver', 'passenger'])
+
+    for message in kafka:
+        m = json.loads(message.value)
+        res=pipeDriver(m) if message.topic == 'driver' else pipePassenger(m)
+        print res
+        kafka.commit()
+    kafka.close()
+
+
+
 def pipeDriver(x):
     d = driver(x)
     if d.isKnown():
@@ -67,26 +88,7 @@ def pipePassenger(x):
         p.store()
     return(p.jsonFormat())
     
-                
-def main():
 
-    kc = KafkaClient(','.join(['{}:9092'.format(i) for i in cluster]), client_id='docker', timeout=120)
-    kafka = KafkaConsumer(kc,
-                          group_id='nyc',
-                          enable_auto_commit=True,
-                          auto_commit_interval_ms= 5000,
-                          auto_offset_reset='smallest')  
-    kafka.subscribe(['driver', 'passenger'])
-
-    for message in kafka:
-        m = json.loads(message.value)
-        res=pipeDriver(m) if message.topic == 'driver' else pipePassenger(m)
-        print res
-        kafka.commit()
-    kafka.close()
-
-
-    
     
 
 class driver(object):
